@@ -1,0 +1,94 @@
+doctype html
+html(lang='en')
+ head
+   title Record A Clip
+   link(rel='stylesheet', href='https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css')
+   script(src='https://unpkg.com/htmx.org@1.5.0')
+   style.
+     body {padding: 20px}
+     table {font-family: arial, sans-serif;border-collapse: collapse;width: 100%;}
+     tr.htmx-swapping td {opacity: 0;transition: opacity 0.5s ease-out;}
+     td, th {border: 1px solid #383737;text-align: left;padding: 8px;}
+     tr:nth-child(even) {background-color: #dddddd;}
+   body 
+     section.videos
+       header.header
+         h1 REcoRDing
+     video(width='640', height='480', autoplay='', id="lv2")
+     a.btn( id = "video") Get AllClips
+     a.btn( id = "record") Start Recording
+     a.btn( id = "stop" ) Stop Recording
+     a.btn( id = "save" ) Save Recording
+     video(width='640', height='480', src="C:/MyWork/m_c_practice/nodeprisma/upload/unknown-video7c9c3573-01cc-4890-8327-f518e869b4a9.mkv", autoplay='', id="lv3")
+     script.
+       console.log("Hello world")
+       const video = document.querySelector("#video");
+       const record = document.querySelector("#record");
+       const stop = document.querySelector("#stop");
+       const save = document.querySelector("#save");
+
+      async function getConnectedDevices(type){
+        console.log("into input")
+        const dev = await navigator.mediaDevices.enumerateDevices();
+        return dev.filter(device => device.kind === type)
+      }
+      async function openCam( id, mw, mh){
+        const constraints = {
+          'audio': {'echoCancelation': true},
+          'video': {
+            'deviceId': id,
+            'width': {'min': mw},
+            'height': {'min': mh}
+          }
+        }
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      }
+      let chunks = [];
+      getConnectedDevices('videoinput').then(
+        (cam) =>{
+          if(cam && cam.length > 0){
+            openCam(cam[0].deviceId, 1280,720).then(
+              (stream) =>{
+                const vidEle = document.querySelector('video#lv2');
+                vidEle.srcObject = stream;
+                const mediaRecorder = new MediaRecorder(stream);
+                record.addEventListener('click', () => { 
+                  if(chunks.length > 0){
+                    prompt("Alredy have a recording")
+                  }
+                  console.log('Button clicked!');
+                  mediaRecorder.start();
+                  console.log(mediaRecorder.state);
+                });
+                mediaRecorder.ondataavailable = (e) => {
+                  console.log(e.data);
+                  chunks.push(e.data);
+                };
+                stop.addEventListener('click', () => { 
+                  console.log('Button clicked stop!');
+                  mediaRecorder.stop();
+                  console.log(mediaRecorder.state);
+                });
+                mediaRecorder.onstop = (e) => {
+                  console.log("recorder stopped");
+                  console.log(chunks)
+                  const downloadLink = document.createElement('a');
+                }
+                save.addEventListener('click', () => {
+                  const blob = new Blob(chunks, { type: "video/x-matroska;codecs=avc1,opus" });
+                  let name = prompt("Enter Clip Name:")
+                  name = name && name.length > 0 ? name : "unknown";
+                  var fd = new FormData();
+                  console.log(blob)
+                  fd.append('file', blob, `${name}-video.mkv`);
+                  fetch('http://localhost:3000/connect/save',
+                  {
+                    method: 'post',
+                    body: fd
+                  }); 
+                });
+              }
+            )
+          }
+        }
+      )
